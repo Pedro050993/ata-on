@@ -13,7 +13,7 @@ const SHELL = [
   'js/core/audio-dsp.js', 'js/core/text.js', 'js/core/minutes.js', 'js/core/formats.js',
   'js/ui/dom.js', 'js/ui/home.js', 'js/ui/record.js', 'js/ui/meetings.js', 'js/ui/meeting.js', 'js/ui/memory.js', 'js/ui/settings.js', 'js/ui/help.js',
   'js/workers/asr.worker.js', 'js/workers/llm.worker.js', 'js/workers/pcm-tap.worklet.js',
-  'vendor/transformers.min.js', 'vendor/docx.iife.js', 'vendor/jspdf.umd.min.js', 'vendor/fflate.js',
+  'vendor/docx.iife.js', 'vendor/jspdf.umd.min.js', 'vendor/fflate.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 // Arquivos de runtime vindos de CDN fixada em versão (ONNX Runtime, WebLLM)

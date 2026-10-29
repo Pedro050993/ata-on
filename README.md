@@ -63,7 +63,7 @@ app/                 PWA (abre direto no navegador)
   js/core/           lógica pura e testável: áudio, texto, ata, formatos
   js/ui/             telas
   js/workers/        Whisper, IA no navegador, captura PCM
-  vendor/            Transformers.js, docx, jsPDF, fflate (versões fixas)
+  vendor/            docx, jsPDF, fflate (Transformers.js 4.3.2 vem do jsDelivr, versão fixa)
 bot/                 servidor local + bot participante (Node + Playwright)
 tests/               unitários, navegador (Playwright), modelo real, gerador de áudios
 docs/                arquitetura, bot, testes

@@ -2,12 +2,12 @@
 // Uma instância = um motor. Em caso de falha, o orquestrador DESCARTA o worker
 // (terminate) e cria outro limpo; este código nunca tenta "se recuperar" sozinho.
 
-import { pipeline, env } from '../../vendor/transformers.min.js';
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
-// Arquivos WASM do ONNX Runtime: CDN fixada na versão empacotada; ficam em cache.
-// (Mantidos fora do repositório: ~27 MB.)
+// Transformers.js e os arquivos WASM do ONNX Runtime vêm do jsDelivr em versão FIXA
+// e ficam no cache do service worker (funciona offline depois do 1º uso).
 
 let asr = null, cfg = null;
 

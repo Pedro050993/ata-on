@@ -22,7 +22,7 @@ async function load({ engineKind, model, device, dtype }) {
       initProgressCallback: (r) => postMessage({ type: 'download', text: r.text, progress: r.progress }),
     }, { context_window_size: 16384 });
   } else {
-    const { pipeline, env } = await import('../../vendor/transformers.min.js');
+    const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js');
     env.allowLocalModels = false;
     const files = {};
     gen = await pipeline('text-generation', model, {
@@ -52,7 +52,7 @@ async function chat({ messages, schema, maxTokens }) {
     }
     return text;
   }
-  const { TextStreamer } = await import('../../vendor/transformers.min.js');
+  const { TextStreamer } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js');
   let chars = 0;
   const streamer = new TextStreamer(gen.tokenizer, { skip_prompt: true, callback_function: (t) => { chars += t.length; postMessage({ type: 'token', chars }); } });
   const out = await gen(messages, { max_new_tokens: maxTokens, do_sample: false, repetition_penalty: 1.05, streamer });
