@@ -39,7 +39,7 @@ const chat = async (messages, { maxTokens }) => {
 const speakerName = s => s.speaker || 'Locutor não identificado';
 const participants = withSpk === '1' ? ['Pedro', 'Marcos', 'Ana'] : [];
 const t1 = Date.now();
-const r = await runMinutesPipeline({ segments, plan: data.plan || [], transcriptionDone: true, meta: { title: 'Planejamento Torre B', date: '29/10/2026', participants }, speakerName, participants, chat, contextTokens: 8192, onStage: s => console.log('etapa:', s) });
+const r = await runMinutesPipeline({ segments, plan: data.plan || [], transcriptionDone: true, meta: { title: 'Planejamento Torre B', date: '29/10/2026', participants }, speakerName, participants, chat, contextTokens: 8192, onStage: s => console.log('etapa:', s), onLog: m => console.log('LOG:', m) });
 const rec = toMinutesRecord(r.facts, { partial: r.partial, coverage: r.coverage, provider: 'transformers.js (node)', model, warnings: r.warnings });
 const md = render('ata', { meeting: { title: 'Planejamento Torre B', startedAt: '2026-10-29T10:00:00Z', durationSec: 66 }, minutes: rec, segments, segIndex: new Map(segments.map(s => [s.id, s])), shots: [], speakerName, participants });
 const res = { model, dtype, withSpeakers: withSpk === '1', seconds: (Date.now() - t1) / 1000, warnings: r.warnings, facts: r.facts };

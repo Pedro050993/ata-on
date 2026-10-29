@@ -181,3 +181,28 @@ test('conferência entende números por extenso', async () => {
   assert.ok(!facts.decisoes[0].verificar, 'seis/sete por extenso devem bater com 6/7');
   assert.ok(facts.decisoes[1].verificar, '8 não aparece');
 });
+
+test('referências escritas no texto pelo modelo são aproveitadas e removidas do texto', () => {
+  const f = normalizeFacts({ tarefas: [{ descricao: 'Marcos atualiza o cronograma até sexta (T6, T7).' }], riscos: ['Elevador atrasado (T10)'], decisoes: [{ texto: 'Nova data', refs: ['t3'] }] });
+  assert.deepEqual(f.tarefas[0].refs, ['T6', 'T7']); assert.equal(f.tarefas[0].descricao, 'Marcos atualiza o cronograma até sexta.');
+  assert.deepEqual(f.riscos[0].refs, ['T10']); assert.equal(f.riscos[0].texto, 'Elevador atrasado');
+  assert.deepEqual(f.decisoes[0].refs, ['T3']);
+  assert.equal(f.tarefas[0].responsavel, 'A confirmar', 'não extrai responsável do texto por regra');
+});
+
+test('reparo de JSON: aspas internas, vírgulas e resposta cortada', async () => {
+  const { repairJson } = await import('../../app/js/core/minutes.js');
+  assert.deepEqual(parseJsonLoose('{"resumo": ["Pedro disse "vamos aprovar" amanhã", "b"]}'), { resumo: ['Pedro disse "vamos aprovar" amanhã', 'b'] });
+  assert.deepEqual(parseJsonLoose('{"a": ["x" "y"], "b": [{"c": 1} {"c": 2}]}'), { a: ['x', 'y'], b: [{ c: 1 }, { c: 2 }] });
+  assert.deepEqual(parseJsonLoose('{"titulo": "T", "resumo": ["um", "do'), { titulo: 'T', resumo: ['um', 'do'] });
+  assert.equal(JSON.parse(repairJson('{"a":"linha1\nlinha2"}')).a, 'linha1\nlinha2');
+});
+
+test('salvamento por seção quando o modelo erra a estrutura', () => {
+  const bad = `{"titulo": "T", "riscos": [ {"texto": "Elevador atrasado"}, "refs": ["T3"] ], "tarefas": [{"descricao": "Confirmar usina", "responsavel": "Ana", "prazo": "amanhã", "compromisso": "assumido", "refs": ["T4"]}]}`;
+  const j = parseJsonLoose(bad);
+  assert.equal(j.titulo, 'T');
+  assert.equal(j.riscos.length, 1); assert.equal(j.riscos[0].texto, 'Elevador atrasado');
+  assert.equal(j.tarefas[0].responsavel, 'Ana');
+  assert.ok(j.__reparado);
+});

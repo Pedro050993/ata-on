@@ -35,7 +35,11 @@ Regras obrigatórias:
 - Responsável: use o nome do locutor só se ele assumiu ou foi claramente designado. Quem apenas citou o assunto ou pediu algo NÃO é responsável. Se não estiver claro, escreva "A confirmar".
 - Prazo: copie como foi dito ("até sexta", "dia 6"). Se ninguém falou prazo, escreva "Não definido".
 - Preserve nomes, empresas, siglas, números, valores, datas e unidades exatamente como aparecem.
-- Responda apenas com JSON válido, sem comentários e sem texto fora do JSON.`;
+- Frases como "ficou decidido", "vamos fazer", "fica aprovado", "não vamos aprovar" indicam DECISÃO (vão em "decisoes").
+- Os identificadores T# vão SOMENTE no campo "refs", nunca dentro dos textos.
+- Em cada tarefa, o nome do responsável vai no campo "responsavel" e o prazo no campo "prazo" (não os repita dentro de "descricao").
+- Responda apenas com JSON válido, sem comentários e sem texto fora do JSON, exatamente neste formato:
+{"titulo":"…","proposito":"…","resumo":["…"],"assuntos":[{"titulo":"…","pontos":["…"],"refs":["T1"]}],"decisoes":[{"texto":"…","status":"acordado","refs":["T2"]}],"propostas":[{"texto":"…","tipo":"sugestão","autor":"…","refs":["T3"]}],"restricoes":[{"texto":"…","refs":["T4"]}],"riscos":[{"texto":"…","refs":["T5"]}],"tarefas":[{"descricao":"…","responsavel":"…","prazo":"…","compromisso":"assumido","refs":["T6"]}]}`;
 
 /** Linhas da transcrição no formato usado pelo modelo. */
 export function transcriptLines(segments, speakerName) {
@@ -99,27 +103,119 @@ export function parseJsonLoose(text) {
     if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
     if (c === '"') inStr = true; else if (c === '{') depth++; else if (c === '}') { depth--; if (!depth) { end = i; break; } }
   }
-  if (end < 0) throw new Error('JSON incompleto na resposta do modelo (resposta cortada?).');
-  const raw = t.slice(start, end + 1).replace(/,\s*([}\]])/g, '$1');
-  return JSON.parse(raw);
+  const raw = end < 0 ? t.slice(start) : t.slice(start, end + 1);
+  try { return JSON.parse(raw.replace(/,\s*([}\]])/g, '$1')); }
+  catch (e1) {
+    try { return JSON.parse(repairJson(raw)); }
+    catch {
+      const salv = salvageJson(raw);
+      if (salv) return salv;
+      const err = new Error(`${e1.message}${end < 0 ? ' — resposta cortada' : ''}`); err.raw = t; throw err;
+    }
+  }
+}
+
+/**
+ * Último recurso: lê cada seção do objeto principal separadamente e, numa lista
+ * quebrada, aproveita só os itens que são JSON válido por si. Marca o resultado
+ * com __reparado para a ata avisar o usuário.
+ */
+export function salvageJson(src) {
+  const t = src.trim().replace(/^\{/, '').replace(/\}\s*$/, '');
+  const out = {}; let found = 0, lost = 0;
+  const re = /"([a-zA-Z_]+)"\s*:\s*/g; let m;
+  const starts = [];
+  // posições de chaves no nível 1
+  let depth = 0, inStr = false, esc = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') { if (depth === 0) { re.lastIndex = i; m = re.exec(t); if (m && m.index === i) { starts.push({ key: m[1], at: re.lastIndex }); i = re.lastIndex - 1; continue; } } inStr = true; continue; }
+    if (c === '{' || c === '[') depth++; else if (c === '}' || c === ']') depth--;
+  }
+  for (let k = 0; k < starts.length; k++) {
+    const seg = t.slice(starts[k].at, k + 1 < starts.length ? t.lastIndexOf(',', t.lastIndexOf('"' + starts[k + 1].key + '"')) : t.length).trim().replace(/,$/, '');
+    try { out[starts[k].key] = JSON.parse(seg); found++; continue; } catch { /* tenta itens */ }
+    try { out[starts[k].key] = JSON.parse(repairJson(seg)); found++; continue; } catch { /* tenta itens */ }
+    if (seg.startsWith('[')) {
+      const items = []; let d = 0, s0 = -1, str = false, e = false;
+      for (let i = 1; i < seg.length; i++) {
+        const c = seg[i];
+        if (str) { if (e) e = false; else if (c === '\\') e = true; else if (c === '"') { str = false; if (d === 0 && s0 >= 0) { try { items.push(JSON.parse(seg.slice(s0, i + 1))); } catch { lost++; } s0 = -1; } } continue; }
+        if (c === '"') { str = true; if (d === 0) s0 = i; continue; }
+        if (c === '[') { d++; continue; }
+        if (c === ']') { d--; continue; }
+        if (c === '{') { if (d === 0) s0 = i; d++; }
+        else if (c === '}') { d--; if (d === 0 && s0 >= 0) { try { items.push(JSON.parse(seg.slice(s0, i + 1))); } catch { try { items.push(JSON.parse(repairJson(seg.slice(s0, i + 1)))); } catch { lost++; } } s0 = -1; } }
+      }
+      out[starts[k].key] = items.filter(x => typeof x !== 'string' || !/^[a-z_]+$/.test(x)); found++;
+    }
+  }
+  if (!found) return null;
+  Object.defineProperty(out, '__reparado', { value: true, enumerable: false });
+  return out;
+}
+
+/**
+ * Reparo conservador de JSON produzido por modelos pequenos:
+ * aspas internas sem escape, vírgula faltando entre elementos, vírgula sobrando
+ * e chaves/colchetes não fechados (resposta cortada). Não inventa conteúdo.
+ */
+export function repairJson(src) {
+  let out = '', inStr = false, esc = false;
+  const stack = [];
+  const nextSig = (i) => { while (i < src.length && /\s/.test(src[i])) i++; return src[i]; };
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inStr) {
+      if (esc) { esc = false; out += c; continue; }
+      if (c === '\\') { esc = true; out += c; continue; }
+      if (c === '\n') { out += '\\n'; continue; }
+      if (c === '"') {
+        const n = nextSig(i + 1);
+        if (n === undefined || ',:}]'.includes(n)) { inStr = false; out += c; }
+        else if (n === '"' ) { inStr = false; out += c + ','; } // "a" "b" → "a","b"
+        else out += '\\"'; // aspas dentro do texto
+        continue;
+      }
+      out += c; continue;
+    }
+    if (c === '"') { inStr = true; out += c; continue; }
+    if (c === '{' || c === '[') stack.push(c === '{' ? '}' : ']');
+    if (c === '}' || c === ']') stack.pop();
+    // "}" seguido de "{" ou de '"' sem vírgula
+    if ((c === '}' || c === ']') && (nextSig(i + 1) === '{' || nextSig(i + 1) === '"')) { out += c + ','; continue; }
+    out += c;
+  }
+  if (inStr) out += '"';
+  out = out.replace(/,\s*$/, '');
+  while (stack.length) out += stack.pop();
+  return out.replace(/,\s*([}\]])/g, '$1');
 }
 
 const arr = v => Array.isArray(v) ? v : (v == null || v === '' ? [] : [v]);
 const str = v => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim();
-const refsOf = v => arr(v?.refs ?? v?.ref).map(r => str(r).replace(/[\[\]\s]/g, '').toUpperCase()).filter(Boolean);
+const REF_IN_TEXT = /\bT\d{1,4}\b/g;
+// refs do campo próprio; se o modelo as escreveu no texto ("(T5, T6)"), aproveita e limpa o texto
+const refsOf = (v, ...texts) => {
+  const own = arr(v?.refs ?? v?.ref).flatMap(r => str(r).toUpperCase().match(REF_IN_TEXT) || []);
+  if (own.length) return [...new Set(own)];
+  return [...new Set(texts.flatMap(t => str(t).match(REF_IN_TEXT) || []))];
+};
+const clean = t => str(t).replace(/\s*[\(\[]\s*(?:T\d{1,4}\s*[,;e]?\s*)+[\)\]]/g, '').replace(/\s{2,}/g, ' ').trim();
 
 /** Normaliza o JSON do modelo para o formato interno (tolera chaves ausentes). */
 export function normalizeFacts(j) {
   return {
     titulo: str(j.titulo),
     proposito: str(j.proposito),
-    resumo: arr(j.resumo).map(str).filter(Boolean),
-    assuntos: arr(j.assuntos).map(a => ({ titulo: str(a.titulo ?? a), pontos: arr(a.pontos).map(str).filter(Boolean), refs: refsOf(a) })).filter(a => a.titulo),
-    decisoes: arr(j.decisoes).map(d => ({ texto: str(d.texto ?? d), status: /confirmar/i.test(str(d.status)) ? 'a confirmar' : 'acordado', refs: refsOf(d) })).filter(d => d.texto),
-    propostas: arr(j.propostas).map(p => ({ texto: str(p.texto ?? p), tipo: str(p.tipo) || 'sugestão', autor: str(p.autor), refs: refsOf(p) })).filter(p => p.texto),
-    restricoes: arr(j.restricoes).map(r => ({ texto: str(r.texto ?? r), refs: refsOf(r) })).filter(r => r.texto),
-    riscos: arr(j.riscos).map(r => ({ texto: str(r.texto ?? r), refs: refsOf(r) })).filter(r => r.texto),
-    tarefas: arr(j.tarefas).map(t => ({ descricao: str(t.descricao ?? t.texto ?? t), responsavel: str(t.responsavel) || A_CONFIRMAR, prazo: str(t.prazo) || NAO_DEFINIDO, compromisso: str(t.compromisso) || 'sugerido', refs: refsOf(t) })).filter(t => t.descricao),
+    resumo: arr(j.resumo).map(x => clean(x)).filter(Boolean),
+    assuntos: arr(j.assuntos).map(a => ({ titulo: clean(a.titulo ?? a), pontos: arr(a.pontos).map(clean).filter(Boolean), refs: refsOf(a, a.titulo, ...arr(a.pontos)) })).filter(a => a.titulo),
+    decisoes: arr(j.decisoes).map(d => ({ texto: clean(d.texto ?? d), status: /confirmar/i.test(str(d.status)) ? 'a confirmar' : 'acordado', refs: refsOf(d, d.texto ?? d) })).filter(d => d.texto),
+    propostas: arr(j.propostas).map(p => ({ texto: clean(p.texto ?? p), tipo: str(p.tipo) || 'sugestão', autor: str(p.autor), refs: refsOf(p, p.texto ?? p) })).filter(p => p.texto),
+    restricoes: arr(j.restricoes).map(r => ({ texto: clean(r.texto ?? r), refs: refsOf(r, r.texto ?? r) })).filter(r => r.texto),
+    riscos: arr(j.riscos).map(r => ({ texto: clean(r.texto ?? r), refs: refsOf(r, r.texto ?? r) })).filter(r => r.texto),
+    tarefas: arr(j.tarefas).map(t => ({ descricao: clean(t.descricao ?? t.texto ?? t), responsavel: str(t.responsavel) || A_CONFIRMAR, prazo: str(t.prazo) || NAO_DEFINIDO, compromisso: str(t.compromisso) || 'sugerido', refs: refsOf(t, t.descricao ?? t.texto ?? t) })).filter(t => t.descricao),
   };
 }
 
@@ -253,8 +349,8 @@ export async function runMinutesPipeline({ segments, plan = [], transcriptionDon
     let lastErr;
     for (let attempt = 0; attempt < 2; attempt++) {
       const text = await chat([{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: attempt ? prompt + '\n\nATENÇÃO: responda apenas com o JSON, completo e válido.' : prompt }], { schema: EXTRACT_SCHEMA, maxTokens: 3500 });
-      try { return normalizeFacts(parseJsonLoose(text)); }
-      catch (e) { lastErr = Object.assign(new Error(`${label}: o modelo não devolveu JSON válido (${e.message}). Início da resposta: ${String(text).slice(0, 300)}`), { kind: 'resposta-invalida' }); onLog?.(lastErr.message); }
+      try { const j = parseJsonLoose(text); if (j.__reparado) onLog?.(`${label}: JSON do modelo reparado por seção; itens ilegíveis foram descartados.`); const f = normalizeFacts(j); f.reparado = !!j.__reparado; return f; }
+      catch (e) { lastErr = Object.assign(new Error(`${label}: o modelo não devolveu JSON válido (${e.message}). Início da resposta: ${String(text).slice(0, 300)}`), { kind: 'resposta-invalida', raw: String(text) }); onLog?.(lastErr.message + '\n--- resposta completa ---\n' + String(text)); }
     }
     throw lastErr;
   };
@@ -273,6 +369,7 @@ export async function runMinutesPipeline({ segments, plan = [], transcriptionDon
   }
   onStage?.('Conferindo referências, responsáveis e prazos contra a transcrição…');
   const { facts: verified, warnings } = verifyFacts(facts, segments, speakerName, participants);
+  if (partials.some(p => p.reparado) || facts.reparado) warnings.unshift('A resposta da IA veio com JSON malformado e foi reparada por seção: confira se faltou algum item.');
   onProgress?.(1);
   return { facts: verified, warnings, partial, coverage, windows: wins.length };
 }

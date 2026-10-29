@@ -36,7 +36,7 @@ export async function render(view) {
   const dl = h('datalist', { id: 'llm-models' });
   const ollamaUrl = h('input', { type: 'url', value: s.llm.ollamaUrl });
   const numCtx = h('input', { type: 'number', value: s.llm.numCtx, min: 2048, step: 1024 });
-  const tfDev = h('select', {}, h('option', { value: 'wasm', selected: s.llm.device !== 'webgpu' }, 'CPU (WASM)'), h('option', { value: 'webgpu', selected: s.llm.device === 'webgpu' }, 'GPU (WebGPU)'));
+  const tfDev = h('select', {}, h('option', { value: 'webgpu', selected: s.llm.device !== 'wasm' }, 'GPU (WebGPU)'), h('option', { value: 'wasm', selected: s.llm.device === 'wasm' }, 'CPU (WASM) — só modelos pequenos'));
   const oaUrl = h('input', { type: 'url', value: s.llm.openaiUrl, placeholder: 'http://localhost:1234/v1' });
   const oaKey = h('input', { type: 'password', value: s.llm.openaiKey, placeholder: 'chave (se o servidor exigir)' });
   const provNote = h('div', { class: 'small muted' });

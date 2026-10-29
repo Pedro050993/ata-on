@@ -1,0 +1,28 @@
+# Publica a pasta app/ no GitHub Pages (HTTPS gratuito) para usar/instalar o
+# Pedro Agent no celular e em outros computadores.
+# Requer: repositório público (ou plano que permita Pages em privado) e
+# Settings → Pages → Source: "GitHub Actions".
+name: Publicar app (GitHub Pages)
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.d.outputs.page_url }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testes unitários
+        run: node --test tests/unit/*.test.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: app }
+      - id: d
+        uses: actions/deploy-pages@v4

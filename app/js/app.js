@@ -14,7 +14,7 @@ const DEFAULTS = {
   asrModel: 'equilibrado', asrDevice: 'auto',
   micId: '', echoCancellation: true, noiseSuppression: false, autoGainControl: true,
   shotInterval: 20, shotThreshold: 12,
-  llm: { provider: 'ollama', model: 'qwen3:8b', ollamaUrl: '', numCtx: 16384, device: 'wasm', openaiUrl: '', openaiKey: '' },
+  llm: { provider: 'ollama', model: 'qwen3:8b', ollamaUrl: '', numCtx: 16384, device: 'webgpu', openaiUrl: '', openaiKey: '' },
 };
 
 export const state = { settings: structuredClone(DEFAULTS), local: null, recording: null, jobs: new Map() };

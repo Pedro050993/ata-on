@@ -14,9 +14,9 @@ export const PROVIDERS = {
     models: ['Qwen3-4B-q4f16_1-MLC', 'Qwen3-8B-q4f16_1-MLC', 'Qwen2.5-7B-Instruct-q4f16_1-MLC', 'Qwen3-1.7B-q4f16_1-MLC'],
   },
   transformers: {
-    label: 'Navegador sem GPU (Transformers.js)',
-    note: 'Funciona em qualquer computador, inclusive só com CPU, mas é lento (vários minutos por ata). Modelos de 1,7B erram mais em responsáveis e prazos; revise com atenção.',
-    models: ['onnx-community/Qwen3-1.7B-ONNX', 'onnx-community/Qwen3-4B-ONNX'],
+    label: 'Navegador (Transformers.js) — experimental',
+    note: 'Roda no navegador. Com GPU (WebGPU) aceita Qwen3-1.7B/4B. Somente com CPU, os testes mostraram falta de memória do WebAssembly para modelos a partir de 1,7B; só o Qwen3-0.6B coube, com qualidade baixa. Para PC sem GPU, prefira o Ollama.',
+    models: ['onnx-community/Qwen3-4B-ONNX', 'onnx-community/Qwen3-1.7B-ONNX', 'onnx-community/Qwen3-0.6B-ONNX'],
   },
   openai: {
     label: 'Servidor compatível com OpenAI (opcional)',
@@ -55,7 +55,7 @@ export class LLM {
       let r;
       try { r = await fetch(this.ollamaUrl('/api/tags')); }
       catch (e) { throw new LlmError(`Não foi possível conectar ao Ollama em ${this.s.ollamaUrl}. Verifique se o Ollama está aberto. Se o app não estiver em localhost, configure OLLAMA_ORIGINS (ver Ajuda). Erro técnico: ${e.message}`, 'conexão'); }
-      if (!r.ok) throw new LlmError(`Ollama respondeu HTTP ${r.status}.`, 'conexão');
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new LlmError(b.error || `Ollama respondeu HTTP ${r.status}. Ele está aberto?`, 'conexão'); }
       const tags = await r.json();
       const names = (tags.models || []).map(m => m.name);
       if (!names.some(n => n === this.s.model || n === this.s.model + ':latest')) throw new LlmError(`O modelo "${this.s.model}" não está instalado no Ollama. Instalados: ${names.join(', ') || 'nenhum'}. Rode: ollama pull ${this.s.model}`, 'config');
@@ -86,8 +86,9 @@ export class LLM {
     };
     this.worker.onerror = (e) => this.pending?.reject(new LlmError(e.message || 'Falha no worker de IA', 'motor'));
     onStage?.(`Carregando o modelo ${this.s.model}…`);
-    const device = this.s.provider === 'transformers' ? (this.s.device === 'webgpu' && navigator.gpu ? 'webgpu' : 'wasm') : undefined;
-    const dtype = this.s.provider === 'transformers' ? (device === 'webgpu' ? 'q4f16' : 'q4') : undefined;
+    const device = this.s.provider === 'transformers' ? (this.s.device !== 'wasm' && navigator.gpu ? 'webgpu' : 'wasm') : undefined;
+    // WASM: arquivo do modelo precisa ter < 2 GB (limite de memória do WebAssembly)
+    const dtype = this.s.provider === 'transformers' ? (this.s.dtype || 'q4f16') : undefined;
     await this.req({ type: 'load', engineKind: this.s.provider, model: this.s.model, device, dtype });
     this.loadedKey = key;
   }

@@ -76,6 +76,14 @@ try {
   await page.selectOption('select', 'executivo'); await page.waitForTimeout(200);
   res.executivoManteveEdicao = (await page.inputValue('textarea.preview')).includes('Nota do Pedro');
   await page.selectOption('select', 'ata'); await page.waitForTimeout(200);
+  if (process.env.SHOTS) { // capturas de tela da interface (revisão visual)
+    for (const [w, tag] of [[1280, 'pc'], [390, 'cel']]) {
+      await page.setViewportSize({ width: w, height: w > 500 ? 900 : 844 });
+      for (const tab of ['Transcrição', 'Ata', 'Tarefas', 'Capturas']) { await page.click(`button.tab:has-text("${tab}")`); await page.waitForTimeout(600); await page.screenshot({ path: path.join(process.env.SHOTS, `${tag}_${tab}.png`), fullPage: false }); }
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.click('button.tab:has-text("Formatos")'); await page.waitForTimeout(300);
+  }
   // --- exportações (mesmas funções dos botões) ---
   const files = await page.evaluate(async ([id, md, conv]) => {
     const ex = await import('/js/export.js'); const db = await import('/js/db.js'); const { tasksCsv } = await import('/js/core/formats.js');

@@ -160,3 +160,10 @@ table.t th, table.t td { text-align: left; padding: 6px 8px; border-bottom: 1px 
 .toast > div { background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; box-shadow: var(--shadow); }
 @media (max-width: 820px) { .toast { bottom: 80px; } }
 kbd { font: .8rem var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+
+/* evita que conteúdo largo empurre a página para além da tela (celular) */
+main, .card, .grid > *, .stack > *, .item > *, .task > * { min-width: 0; }
+main { overflow-wrap: anywhere; }
+.item > .btn, .item > .row { align-self: start; }
+.topbar input { max-width: 100%; }
+@media (max-width: 600px) { .seg { grid-template-columns: 1fr; gap: 2px; } .task .meta { grid-template-columns: 1fr 1fr; } .meter { grid-template-columns: 90px 1fr 52px; } }
