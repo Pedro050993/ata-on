@@ -1,0 +1,16 @@
+{
+  "name": "pedro-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pedro Agent: grava reuniões, transcreve localmente (Whisper) e gera atas com IA local.",
+  "type": "module",
+  "scripts": {
+    "start": "node bot/server.js --abrir",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:modelo": "node tests/model/ata-real.mjs",
+    "fixtures": "python3 tests/fixtures/make_fixtures.py"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "4.3.2"
+  }
+}

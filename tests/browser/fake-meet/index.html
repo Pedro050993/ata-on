@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Reuniao Falsa (teste)</title></head>
+<body>
+<!-- Página de TESTE que imita os textos e botões do Google Meet. Não é o Meet real.
+     Parâmetros: ?admit=SEG (admite após SEG s) | ?deny=SEG | &end=SEG (encerra após SEG s no call)
+                 &audio=URL (áudio "dos participantes", enviado por WebRTC) -->
+<div id="pre">
+  <h1>Ready to join?</h1>
+  <input aria-label="Your name" type="text">
+  <button aria-label="Turn off microphone">Turn off microphone</button>
+  <button aria-label="Turn off camera">Turn off camera</button>
+  <button id="ask">Ask to join</button>
+</div>
+<div id="wait" hidden><p>Asking to be let in…</p><p>You'll join the call when someone lets you in</p></div>
+<div id="call" hidden><p>Reunião em andamento</p><div data-participant-id="1"><span data-self-name>Pedro Melecardi</span></div><div data-participant-id="2"><span data-self-name>Marcos Silva</span></div><button aria-label="Leave call" id="leave">Leave</button></div>
+<div id="done" hidden><p>You left the meeting</p><button>Return to home screen</button></div>
+<div id="denied" hidden><p>Someone in the call denied your request to join</p></div>
+<script>
+const q = new URLSearchParams(location.search);
+const show = id => { for (const s of ['pre', 'wait', 'call', 'done', 'denied']) document.getElementById(s).hidden = s !== id; };
+let joinedName = '';
+document.getElementById('ask').onclick = () => {
+  joinedName = document.querySelector('input').value;
+  window.__name = joinedName;
+  show('wait');
+  if (q.get('deny')) setTimeout(() => show('denied'), q.get('deny') * 1000);
+  if (q.get('admit')) setTimeout(admit, q.get('admit') * 1000);
+};
+document.getElementById('leave').onclick = () => show('done');
+async function admit() {
+  show('call');
+  // "participantes" falando: áudio enviado por uma conexão WebRTC local (loopback)
+  const a = new Audio(q.get('audio')); a.crossOrigin = 'anonymous'; a.loop = false;
+  await a.play().catch(() => {});
+  const ctx = new AudioContext(); const src = ctx.createMediaElementSource(a); const dst = ctx.createMediaStreamDestination(); src.connect(dst);
+  const pc1 = new RTCPeerConnection(), pc2 = new RTCPeerConnection();
+  pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate);
+  pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate);
+  pc2.ontrack = e => { const el = new Audio(); el.srcObject = e.streams[0] || new MediaStream([e.track]); el.play().catch(() => {}); };
+  dst.stream.getTracks().forEach(t => pc1.addTrack(t, dst.stream));
+  const off = await pc1.createOffer(); await pc1.setLocalDescription(off); await pc2.setRemoteDescription(off);
+  const ans = await pc2.createAnswer(); await pc2.setLocalDescription(ans); await pc1.setRemoteDescription(ans);
+  if (q.get('end')) setTimeout(() => show('done'), q.get('end') * 1000);
+}
+</script>
+</body></html>

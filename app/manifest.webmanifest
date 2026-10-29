@@ -1,0 +1,17 @@
+{
+  "name": "Pedro Agent — atas de reunião",
+  "short_name": "Pedro Agent",
+  "description": "Grava reuniões, transcreve localmente e gera atas com IA.",
+  "lang": "pt-BR",
+  "start_url": "./#/inicio",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#0e3b43",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
