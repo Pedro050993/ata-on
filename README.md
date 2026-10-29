@@ -4,7 +4,12 @@ Grava reuniões presenciais e online, transcreve **no próprio computador** e ge
 
 > Estado: versão 1.0.0. O fluxo gravar/importar → transcrever → ata por IA → revisar → exportar está implementado e foi testado no Chromium com modelos reais. Pendências e o que não pôde ser comprovado estão em [docs/TESTES.md](docs/TESTES.md#o-que-ainda-não-foi-comprovado).
 
-## Começar (Windows)
+## Começar (Windows) — jeito mais fácil
+
+1. Extraia o ZIP (botão direito → **Extrair tudo**).
+2. Dê dois cliques em **`Instalar tudo.bat`**. Ele verifica a RAM, instala o Ollama se faltar, baixa o modelo adequado (`qwen3:8b` com 16 GB ou mais; `qwen3:4b` com menos), testa a IA, configura o app e o abre.
+
+## Começar (Windows) — passo a passo manual
 
 1. Baixe este repositório (Code → Download ZIP) e extraia em uma pasta, por exemplo `C:\PedroAgent`.
 2. Recomendado: instale o **Node.js LTS** (gratuito, nodejs.org).

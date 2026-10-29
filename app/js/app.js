@@ -22,6 +22,10 @@ export const state = { settings: structuredClone(DEFAULTS), local: null, recordi
 export async function loadSettings() {
   const s = await db.getSetting('settings', {});
   state.settings = { ...structuredClone(DEFAULTS), ...s, llm: { ...DEFAULTS.llm, ...(s.llm || {}) } };
+  // configuração deixada pelo "Instalar tudo.bat" (só vale se você ainda não salvou a sua)
+  if (!s.llm) {
+    try { const r = await fetch('config.local.json', { cache: 'no-store' }); if (r.ok) { const c = await r.json(); if (c.llm) state.settings.llm = { ...state.settings.llm, ...c.llm }; } } catch { /* sem arquivo */ }
+  }
   if (!state.settings.llm.ollamaUrl) state.settings.llm.ollamaUrl = state.local ? `${location.origin}/ollama` : 'http://localhost:11434';
   applyTheme();
   return state.settings;

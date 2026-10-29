@@ -1,4 +1,4 @@
-# Servidor estático mínimo (sem dependências) para abrir o Pedro Agent em
+﻿# Servidor estático mínimo (sem dependências) para abrir o Pedro Agent em
 # http://localhost:8787 quando o Node.js não está instalado. Não inclui o bot.
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot '..\app' | Resolve-Path
