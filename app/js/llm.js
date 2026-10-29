@@ -15,8 +15,8 @@ export const PROVIDERS = {
   },
   transformers: {
     label: 'Navegador (Transformers.js) — experimental',
-    note: 'Roda no navegador. Com GPU (WebGPU) aceita Qwen3-1.7B/4B. Somente com CPU, os testes mostraram falta de memória do WebAssembly para modelos a partir de 1,7B; só o Qwen3-0.6B coube, com qualidade baixa. Para PC sem GPU, prefira o Ollama.',
-    models: ['onnx-community/Qwen3-4B-ONNX', 'onnx-community/Qwen3-1.7B-ONNX', 'onnx-community/Qwen3-0.6B-ONNX'],
+    note: 'Roda no navegador e exige GPU (WebGPU) para modelos úteis (Qwen3-1.7B/4B). Sem GPU, os testes mostraram falta de memória do WebAssembly a partir de 1,7B; o Qwen3-0.6B coube, mas INVERTEU uma decisão da reunião e não é recomendado. Para PC sem GPU, use o Ollama.',
+    models: ['onnx-community/Qwen3-4B-ONNX', 'onnx-community/Qwen3-1.7B-ONNX'],
   },
   openai: {
     label: 'Servidor compatível com OpenAI (opcional)',
@@ -153,6 +153,7 @@ export class LLM {
       return j.choices?.[0]?.message?.content || '';
     }
     await this.ensureWorker(onStage);
+    onStage?.(`IA redigindo com ${this.s.model}…`);
     try {
       const d = await this.req({ type: 'chat', messages, schema, maxTokens });
       return d.text;

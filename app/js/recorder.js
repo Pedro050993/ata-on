@@ -104,7 +104,7 @@ export class Recording {
     this.meeting = meeting; this.micStream = micStream; this.displayStream = displayStream; this.ev = events;
     this.state = 'parado'; this.samples = 0; this.pcmBuf = []; this.pcmLen = 0; this.chunkSeq = 0;
     this.recorders = []; this.seq = {}; this.writes = Promise.resolve(); this.lowSince = null; this.energy = [];
-    this.writeErrors = 0;
+    this.writeErrors = 0; this.sinceSave = 0;
   }
   get seconds() { return this.samples / 16000; }
 
@@ -184,6 +184,21 @@ export class Recording {
     else this.lowSince = null;
     if (L.mix.clip > 3) this.ev.onWarning?.('saturacao', 'Saturação detectada (som estourado). Reduza o volume/ganho de entrada.');
     if (this.pcmLen >= PCM_CHUNK) this.flushPcm();
+    else if (++this.sinceSave >= 30) this.savePartial(); // ~3 s: perda máxima em travamento
+  }
+
+  /** Grava o bloco ainda incompleto (é sobrescrito quando completar). */
+  savePartial() {
+    this.sinceSave = 0;
+    if (!this.pcmLen) return;
+    const part = new Int16Array(this.pcmLen); let o = 0;
+    for (const b of this.pcmBuf) { part.set(b, o); o += b.length; }
+    const seq = this.chunkSeq, samples = seq * PCM_CHUNK + part.length;
+    const rec = { meetingId: this.meeting.id, seq, data: part.buffer, energy: this.energy.slice(0, Math.round(part.length / 1600)), partial: true };
+    this.queue(async () => {
+      await db.guardedPut(this.meeting.id, 'pcm', rec);
+      await db.updateMeeting(this.meeting.id, m => { if ((m.pcm?.samples || 0) < samples) { m.pcm = { sampleRate: 16000, chunkSamples: PCM_CHUNK, samples, chunks: seq + 1 }; m.durationSec = samples / 16000; } });
+    });
   }
 
   flushPcm(final = false) {
@@ -200,7 +215,7 @@ export class Recording {
       const samples = seq * PCM_CHUNK + part.length;
       this.queue(async () => {
         await db.guardedPut(this.meeting.id, 'pcm', rec);
-        await db.updateMeeting(this.meeting.id, m => { m.pcm = { sampleRate: 16000, chunkSamples: PCM_CHUNK, samples, chunks: seq + 1 }; m.durationSec = samples / 16000; });
+        await db.updateMeeting(this.meeting.id, m => { if ((m.pcm?.samples || 0) <= samples) { m.pcm = { sampleRate: 16000, chunkSamples: PCM_CHUNK, samples, chunks: seq + 1 }; m.durationSec = samples / 16000; } });
       });
     }
     const rest = all.slice(off);
